@@ -1,4 +1,4 @@
-# Build Your First Autonomous AI Agent on AWS
+# ProjectPilot AI – AI-Powered Engineering Project Planner
 
 A beginner-friendly AWS workshop project where students build a serverless AI-powered task tracker using **Amazon Bedrock Agents**, **AWS Lambda**, **API Gateway**, **DynamoDB**, **AWS CDK**, and **AWS Amplify**.
 

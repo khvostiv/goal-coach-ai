@@ -97,10 +97,6 @@ async function resolveUpdateTarget(params, userMessage) {
     };
   }
 
-  const pending = tasks.filter((task) => task.status === "pending");
-  if (pending.length === 1) {
-    return { type: "match", taskId: pending[0].taskId };
-  }
 
   return { type: "none" };
 }
@@ -110,7 +106,7 @@ async function executeLeakedAction(parsed, userMessage) {
     if (!parsed.params.title?.trim()) {
       return null;
     }
-
+  
     const task = await createTask({
       title: parsed.params.title,
       dueDate: parsed.params.dueDate,
@@ -118,8 +114,8 @@ async function executeLeakedAction(parsed, userMessage) {
       priority: parsed.params.priority,
       originalRequest: parsed.params.originalRequest || parsed.params.title,
     });
-
-    return null;
+  
+    return `Your first task "${task.title}" has been created and added to your active tasks.`;
   }
 
   if (parsed.action === "list") {
@@ -190,17 +186,6 @@ async function tryLocalIntent(userMessage) {
       }
     }
 
-    const pending = tasks.filter((task) => task.status === "pending");
-    if (pending.length === 1) {
-      const updated = await updateTask(pending[0].taskId, {
-        status: "completed",
-      });
-
-      if (updated) {
-        return `Nice work! I marked "${updated.title}" as done.`;
-      }
-    }
-
     return 'I couldn\'t identify the completed task. Please mention the task name, for example: "I finished Setup DynamoDB for Chatbot Data Storage."';
   }
 
@@ -246,19 +231,23 @@ async function invokeBedrockAgent(message, sessionId) {
 }
 
 async function getAgentReply(message, sessionId) {
+  // Handle list and completion requests locally first.
+  // This prevents Bedrock from updating the wrong task.
+  const localReply = await tryLocalIntent(message);
+
+  if (localReply) {
+    return localReply;
+  }
+
   const rawReply = await invokeBedrockAgent(message, sessionId);
   const leakedAction = parseLeakedAgentAction(rawReply);
 
   if (leakedAction) {
     const executed = await executeLeakedAction(leakedAction, message);
+
     if (executed) {
       return executed;
     }
-  }
-
-  const localReply = await tryLocalIntent(message);
-  if (localReply) {
-    return localReply;
   }
 
   const cleaned = stripFunctionMarkup(rawReply);
@@ -268,16 +257,28 @@ async function getAgentReply(message, sessionId) {
   }
 
   await new Promise((resolve) => setTimeout(resolve, 1000));
-  
+
   const retryReply = await invokeBedrockAgent(message, sessionId);
+  const retryLeakedAction = parseLeakedAgentAction(retryReply);
+
+  // Also execute leaked actions returned by the retry.
+  if (retryLeakedAction) {
+    const executed = await executeLeakedAction(retryLeakedAction, message);
+
+    if (executed) {
+      return executed;
+    }
+  }
+
   const cleanedRetry = stripFunctionMarkup(retryReply);
-  
+
   if (cleanedRetry && !isGenericAgentReply(cleanedRetry)) {
     return cleanedRetry;
   }
-  
-  return "Please try again.";
+
+  return "I couldn't complete that request. Please try again.";
 }
+
 
 function parseTaskIdFromPath(path) {
   const segments = path.split("/").filter(Boolean);
