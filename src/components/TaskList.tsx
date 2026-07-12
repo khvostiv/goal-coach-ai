@@ -74,12 +74,12 @@ export function TaskList({
   ];
 
   return (
-    <section className="sb-panel flex h-full min-h-0 flex-col rounded-[2rem]">
-      <header className="border-b border-[var(--sb-border)] px-5 py-3">
+    <section className="sb-panel flex h-[680px] min-h-0 flex-col rounded-[2rem] overflow-hidden">
+      <header className="shrink-0 border-b border-[var(--sb-border)] px-5 py-3">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div>
-            <p className="sb-label">DynamoDB task dashboard</p>
-            <h2 className="text-base font-bold text-[var(--sb-text)]">My Tasks</h2>
+            <p className="sb-label">Project Dashboard</p>
+            <h2 className="text-base font-bold text-[var(--sb-text)]">Implementation Plan</h2>
           </div>
 
           <button
@@ -88,7 +88,7 @@ export function TaskList({
             disabled={isRefreshing}
             className="sb-btn-outline rounded-xl px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {isRefreshing ? "Syncing" : "Refresh"}
+            {isRefreshing ? "Updating..." : "Sync"}
           </button>
         </div>
 
@@ -96,7 +96,7 @@ export function TaskList({
           <div className="flex-1">
             <div className="h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-[var(--sb-cyan)] transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
                 style={{ width: `${completionPercent}%` }}
               />
             </div>
@@ -117,7 +117,7 @@ export function TaskList({
               onClick={() => onFilterChange(item.id)}
               className={`rounded-lg px-2.5 py-1 font-[family-name:var(--font-mono)] text-[0.6875rem] font-bold uppercase tracking-wider transition ${
                 filter === item.id
-                  ? "bg-[var(--sb-cyan)] text-[#071018]"
+                  ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white"
                   : "border border-[var(--sb-border)] text-[var(--sb-text-muted)] hover:border-[var(--sb-cyan)] hover:text-[var(--sb-cyan)]"
               }`}
             >
@@ -132,21 +132,20 @@ export function TaskList({
           <div className="flex h-full min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--sb-border)] px-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--sb-border-strong)] bg-[var(--sb-cyan-dim)]">
               <span className="font-[family-name:var(--font-mono)] text-xl text-[var(--sb-cyan)]">
-                AI
+                PP
               </span>
             </div>
 
             <p className="mt-4 font-bold text-[var(--sb-text)]">
               {filter === "done"
-                ? "No completed tasks yet"
+                ? "No completed project steps"
                 : filter === "active"
-                  ? "No active tasks"
-                  : "Your task list is empty"}
+                  ? "No active project steps"
+                  : "No project plan generated yet"}
             </p>
 
             <p className="mt-2 max-w-xs text-sm text-[var(--sb-text-muted)]">
-              Ask the agent to add a task, then it will appear here after being
-              stored in DynamoDB.
+              Describe your software, cloud, AI or data engineering project and ProjectPilot AI will generate a complete implementation roadmap.
             </p>
           </div>
         ) : (
@@ -157,7 +156,7 @@ export function TaskList({
             return (
               <article
                 key={task.taskId}
-                className={`sb-stat-card relative rounded-3xl p-4 transition ${
+                className={`group sb-stat-card relative rounded-3xl p-5 transition duration-300 hover:scale-[1.01] hover:shadow-[0_0_35px_rgba(168,85,247,.25)] ${
                   isDone ? "opacity-70" : "hover:border-[var(--sb-border-strong)]"
                 }`}
               >
@@ -185,7 +184,7 @@ export function TaskList({
                     }
                     className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition disabled:opacity-50 ${
                       isDone
-                        ? "border-[var(--sb-cyan)] bg-[var(--sb-cyan)] text-[#071018]"
+                        ? "border-violet-500 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white"
                         : "border-[var(--sb-border-strong)] bg-transparent hover:border-[var(--sb-cyan)]"
                     }`}
                   >
@@ -250,7 +249,7 @@ export function TaskList({
 
                     {task.originalRequest && (
                       <p className="mt-3 rounded-2xl border border-[var(--sb-border)] bg-[var(--sb-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-                        Original request: {task.originalRequest}
+                        Project: {task.originalRequest}
                       </p>
                     )}
                   </div>
@@ -261,9 +260,8 @@ export function TaskList({
         )}
       </div>
 
-      <footer className="border-t border-[var(--sb-border)] px-5 py-4 text-xs text-[var(--sb-text-muted)]">
-        You can update tasks by clicking the checkbox or by chatting with the
-        Bedrock Agent.
+      <footer className="shrink-0 border-t border-[var(--sb-border)] px-5 py-4 text-xs text-[var(--sb-text-muted)]">
+        Track your engineering project by completing steps or asking ProjectPilot AI to update your plan.
       </footer>
     </section>
   );

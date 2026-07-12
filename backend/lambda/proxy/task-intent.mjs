@@ -7,27 +7,39 @@ const LIST_RE =
 const CREATE_RE =
   /\b(add|create|new task|remind me to|due on|due by|due date)\b/i;
 
-const STOP_WORDS = new Set([
-  "i",
-  "have",
-  "has",
-  "had",
-  "the",
-  "my",
-  "a",
-  "an",
-  "is",
-  "it",
-  "that",
-  "this",
-  "for",
-  "on",
-  "to",
-  "just",
-  "already",
-  "task",
-  "tasks",
-]);
+  const STOP_WORDS = new Set([
+    "i",
+    "have",
+    "has",
+    "had",
+    "the",
+    "my",
+    "a",
+    "an",
+    "is",
+    "it",
+    "that",
+    "this",
+    "for",
+    "on",
+    "to",
+    "just",
+    "already",
+    "task",
+    "tasks",
+  
+    "setup",
+    "set",
+    "up",
+    "build",
+    "create",
+    "project",
+    "plan",
+    "implementation",
+    "mark",
+    "configure",
+    "implement",
+  ]);
 
 function normalize(text) {
   return text
@@ -87,8 +99,11 @@ function messageKeywords(message) {
 }
 
 function taskTokens(task) {
-  const combined = normalize(`${task.title} ${task.category} ${task.originalRequest}`);
-  return combined.split(" ").filter((word) => word.length > 1);
+  const combined = normalize(`${task.title} ${task.category}`);
+
+  return combined
+    .split(" ")
+    .filter((word) => word.length > 1 && !STOP_WORDS.has(word));
 }
 
 export function isCompleteIntent(message) {
@@ -145,6 +160,17 @@ export function rankTasksForMessage(message, tasks) {
 }
 
 export function pickBestTaskMatch(message, tasks) {
+  const normalizedMessage = normalize(message);
+
+  for (const task of tasks) {
+    if (normalizedMessage.includes(normalize(task.title))) {
+      return {
+        type: "match",
+        task,
+      };
+    }
+  }
+
   const ranked = rankTasksForMessage(message, tasks);
 
   if (ranked.length === 0) {
@@ -158,9 +184,22 @@ export function pickBestTaskMatch(message, tasks) {
     };
   }
 
-  if (ranked[0].score < 3) {
+  if (ranked[0].score < 6) {
     return { type: "weak" };
   }
 
-  return { type: "match", task: ranked[0].task };
+  if (
+    ranked.length > 1 &&
+    ranked[0].score - ranked[1].score < 3
+  ) {
+    return {
+      type: "ambiguous",
+      candidates: ranked.slice(0, 3).map((entry) => entry.task),
+    };
+  }
+
+  return {
+    type: "match",
+    task: ranked[0].task,
+  };
 }

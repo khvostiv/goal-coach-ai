@@ -54,7 +54,7 @@ export default function WorkspacePage() {
   const [messages, setMessages] = useState<ChatMessage[]>([
     createMessage(
       "agent",
-      "Hey! I’m your AI to-do assistant. Add tasks in plain English, ask what’s on your list, or tell me when you’ve finished something - even vaguely, like “I done the homework” - and I’ll figure out which task you mean."
+      "Hi! I'm ProjectPilot AI. Describe your engineering project, and I'll break it into a prioritized implementation plan with actionable tasks."
     ),
   ]);
   const [isLoading, setIsLoading] = useState(false);
@@ -120,7 +120,7 @@ export default function WorkspacePage() {
 
       setMessages((current) => [
         ...current,
-        createMessage("agent", data.message || "Done."),
+        createMessage("agent", data.message || "Project plan generated successfully."),
       ]);
 
       await loadTasks();
@@ -213,43 +213,51 @@ export default function WorkspacePage() {
   }, [apiUrl]);
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden">
-      <div className="pointer-events-none fixed left-[-180px] top-[-180px] h-[420px] w-[420px] rounded-full bg-[var(--sb-cyan)]/10 blur-3xl" />
-      <div className="pointer-events-none fixed bottom-[-220px] right-[-180px] h-[500px] w-[500px] rounded-full bg-blue-500/10 blur-3xl" />
-
+    <div className="min-h-screen bg-transparent">
       <SiteHeader />
-
-      <main className="relative z-10 flex min-h-0 flex-1 flex-col px-4 py-4 sm:px-6 lg:px-8">
-        <div className="mb-3 flex items-center gap-2">
-          <p className="sb-label">Agent Workspace</p>
-          <span className="text-[var(--sb-border)]">·</span>
-          <h1 className="text-sm font-bold text-[var(--sb-text)]">
-            AI Task Tracker
+  
+      <main className="mx-auto flex w-full max-w-screen-2xl flex-col px-8 py-8">
+  
+        <div className="mb-10 text-center">
+          <h1 className="text-5xl font-bold tracking-tight">
+            ProjectPilot AI
           </h1>
+  
+          <p className="mt-4 text-lg text-violet-300">
+            AI Engineering Project Planner
+          </p>
         </div>
+  
+        <div className="grid min-h-[680px] gap-10 xl:grid-cols-[1.5fr_1fr]">
+          <div className="min-h-0">
+            <ChatPanel
+              messages={messages}
+              input={input}
+              isLoading={isLoading}
+              onInputChange={setInput}
+              onSend={() => sendMessage(input)}
+              onQuickPrompt={sendMessage}
+            />
+          </div>
 
-        <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-2">
-          <ChatPanel
-            messages={messages}
-            input={input}
-            isLoading={isLoading}
-            onInputChange={setInput}
-            onSend={() => sendMessage(input)}
-            onQuickPrompt={sendMessage}
-          />
+          <div className="flex min-h-0 flex-col gap-5">
 
-          <TaskList
-            tasks={tasks}
-            filter={filter}
-            onFilterChange={setFilter}
-            onToggleComplete={toggleTaskComplete}
-            onDelete={deleteTask}
-            onRefresh={loadTasks}
-            updatingTaskId={updatingTaskId}
-            isRefreshing={isRefreshing}
-            completionPercent={completionPercent}
-          />
+            <div className="min-h-0 flex-1">
+              <TaskList
+                tasks={tasks}
+                filter={filter}
+                onFilterChange={setFilter}
+                onToggleComplete={toggleTaskComplete}
+                onDelete={deleteTask}
+                onRefresh={loadTasks}
+                updatingTaskId={updatingTaskId}
+                isRefreshing={isRefreshing}
+                completionPercent={completionPercent}
+              />
+            </div>
+          </div>
         </div>
+  
       </main>
     </div>
   );

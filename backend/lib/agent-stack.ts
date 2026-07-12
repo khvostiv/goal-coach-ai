@@ -11,32 +11,29 @@ import * as iam from "aws-cdk-lib/aws-iam";
 // Use the global inference profile for Nova 2 Lite (required for on-demand use).
 export const FOUNDATION_MODEL = "global.amazon.nova-2-lite-v1:0";
 
-const AGENT_INSTRUCTION = `You are a friendly AI-powered to-do list assistant. Users talk in natural language; you manage their task list through tools.
+const AGENT_INSTRUCTION = `You are ProjectPilot AI, an engineering project planning assistant.
 
-CREATING TASKS
-When the user wants to add something:
-1. Infer a short clear title (example: "Digital Principles assignment").
-2. Extract dueDate (YYYY-MM-DD or unknown), category (course or general), priority (low/medium/high, default medium).
-3. Call createTask with title, dueDate, category, priority, and originalRequest set to the user's exact message.
+When the user describes an engineering project:
 
-LISTING TASKS
-When the user asks what's on their list, what's due, or wants a summary, call listTasks and present tasks clearly (title, due date, status, priority).
+1. Create a concise implementation plan with 5 numbered steps.
+2. Select the first practical step from that plan.
+3. Call createTask exactly ONCE to save that first step.
+4. Then show the full 5-step plan in friendly plain English.
 
-UPDATING TASKS — including vague references
-When the user says they finished something, wants to mark something done, change a date, rename a task, or refers loosely ("that one", "the assignment", "I done the math homework"):
-1. ALWAYS call listTasks first.
-2. Match the best task using title keywords, category, due date, priority, status (prefer pending tasks), and recent conversation context.
-3. If one task clearly matches, call updateTask with that taskId and the changes (often status: completed).
-4. If several tasks could match, ask one short clarifying question and list the candidates by title and due date.
-5. If nothing matches, say so and offer to list tasks.
+For the saved task use:
+- short clear title
+- relevant category
+- priority high, medium, or low
+- dueDate unknown unless provided
+- originalRequest equal to the user's exact message
 
-Do not ask unnecessary questions when creating a task if the message already has enough detail.
+Never call createTask more than once per message.
+Never display tool calls, XML, function tags, JSON, or internal syntax.
 
-Use today's date to interpret relative dates like "tomorrow" or "next Friday".
+When asked to list tasks, call listTasks.
+When asked to update a task, call listTasks first and then updateTask.
 
-Never show tool calls, XML tags, JSON, or internal function syntax to the user. Use action group tools silently, then reply in warm plain English.
-
-Always confirm what you changed in warm, concise plain English.`;
+Keep responses concise and practical.`;
 
 export class AgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -104,8 +101,8 @@ export class AgentStack extends cdk.Stack {
     );
 
     const bedrockAgent = new bedrock.CfnAgent(this, "TaskTrackerAgent", {
-      agentName: "TaskTrackerAgent",
-      description: "Autonomous task tracker agent for student assignments",
+      agentName: "ProjectPilotAgent",
+      description: "AI-powered engineering project planning assistant",
       foundationModel: FOUNDATION_MODEL,
       instruction: AGENT_INSTRUCTION,
       agentResourceRoleArn: agentRole.roleArn,
@@ -116,7 +113,7 @@ export class AgentStack extends cdk.Stack {
           actionGroupName: "TaskManagement",
           actionGroupState: "ENABLED",
           description:
-            "Create, list, and update tasks stored in DynamoDB for the student task tracker",
+          "Create, list, and update engineering project tasks stored in DynamoDB",
           actionGroupExecutor: {
             lambda: actionGroupFunction.functionArn,
           },
@@ -159,8 +156,8 @@ export class AgentStack extends cdk.Stack {
     proxyFunction.node.addDependency(bedrockAgent);
 
     const api = new apigateway.RestApi(this, "AgentApi", {
-      restApiName: "Autonomous Agent API",
-      description: "API for Bedrock Agent task tracker",
+      restApiName: "ProjectPilot AI API",
+      description: "API for ProjectPilot AI",
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],

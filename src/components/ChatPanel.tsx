@@ -5,10 +5,10 @@ import Markdown from "react-markdown";
 import type { ChatMessage } from "@/types/task";
 
 const QUICK_PROMPTS = [
-  "Add a task: finish lab report by Friday",
-  "What is on my list?",
-  "I finished the homework assignment",
-  "Mark my highest priority task as done",
+  "Build a Spring Boot REST API with JWT",
+  "Create an AWS Data Lake using S3, Glue and Athena",
+  "Plan a Kafka streaming pipeline",
+  "Build an ETL pipeline from MySQL to Redshift",
 ];
 
 type ChatPanelProps = {
@@ -46,19 +46,19 @@ export function ChatPanel({
   }
 
   return (
-    <section className="sb-panel flex h-full min-h-0 flex-col rounded-[2rem]">
-      <header className="border-b border-[var(--sb-border)] px-5 py-3">
+    <section className="sb-panel flex h-[680px] min-h-0 flex-col rounded-[2rem]">
+      <header className="shrink-0 border-b border-[var(--sb-border)] px-5 py-3">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="sb-label">Chat with the agent</p>
+            <p className="sb-label">AI Engineering Assistant</p>
             <h2 className="text-base font-bold text-[var(--sb-text)]">
-              Bedrock Task Assistant
+              Engineering Project Planner
             </h2>
           </div>
 
           <div className="rounded-xl border border-[var(--sb-border)] bg-[var(--sb-cyan-dim)] px-3 py-1.5 text-center">
             <p className="font-[family-name:var(--font-mono)] text-[9px] font-bold uppercase tracking-wider text-[var(--sb-cyan)]">
-              Agentic
+              Powered by Bedrock
             </p>
           </div>
         </div>
@@ -79,8 +79,8 @@ export function ChatPanel({
               <div
                 className={`max-w-[88%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-lg ${
                   isUser
-                    ? "rounded-br-sm bg-[var(--sb-cyan)] text-[#071018]"
-                    : "rounded-bl-sm border border-[var(--sb-border)] bg-[var(--sb-bg-elevated)] text-[var(--sb-text)]"
+                    ? "rounded-br-sm bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white"
+                    : "rounded-bl-sm border border-violet-500/20 bg-[#140d24] text-[var(--sb-text)]"
                 }`}
               >
                 <div className="mb-1 font-[family-name:var(--font-mono)] text-[10px] font-bold uppercase tracking-wider opacity-70">
@@ -111,14 +111,14 @@ export function ChatPanel({
             <div className="rounded-2xl rounded-bl-sm border border-[var(--sb-border)] bg-[var(--sb-bg-elevated)] px-4 py-3 text-sm text-[var(--sb-text-muted)] shadow-lg">
               <span className="inline-flex items-center gap-2">
                 <span className="h-2 w-2 animate-ping rounded-full bg-[var(--sb-cyan)]" />
-                Agent is thinking and selecting a tool...
+                  Analyzing your project and generating an implementation roadmap...
               </span>
             </div>
           </div>
         )}
       </div>
 
-      <div className="border-t border-[var(--sb-border)] px-5 py-3">
+      <div className="shrink-0 border-t border-[var(--sb-border)] px-5 py-3">
         <div className="mb-2 flex flex-wrap gap-1.5">
           {QUICK_PROMPTS.map((prompt) => (
             <button
@@ -138,14 +138,15 @@ export function ChatPanel({
             value={input}
             onChange={(event) => onInputChange(event.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder='Ask the agent something - "Add dentist appointment tomorrow"'
+            placeholder='Describe your engineering project...
+            Example: "Build an AWS data pipeline using S3, Glue and Redshift"'
             rows={2}
             disabled={isLoading}
             className="min-h-[52px] w-full resize-none bg-transparent px-4 pt-3 text-sm text-[var(--sb-text)] outline-none placeholder:text-[var(--sb-text-muted)] disabled:opacity-60"
           />
           <div className="flex items-center justify-between px-3 pb-2.5">
             <p className="font-[family-name:var(--font-mono)] text-[9px] uppercase tracking-wider text-[var(--sb-text-muted)]">
-              Enter to send - Shift+Enter for new line
+              Press Enter to generate your project plan
             </p>
             <button
               type="button"
@@ -153,7 +154,7 @@ export function ChatPanel({
               disabled={isLoading || !input.trim()}
               className="sb-btn-primary rounded-xl px-4 py-1.5 text-sm disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Send
+              Generate Plan
             </button>
           </div>
         </div>

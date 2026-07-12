@@ -34,7 +34,10 @@ function response(statusCode, body) {
 function stripFunctionMarkup(text) {
   return text
     .replace(/<__function[^>]*>[\s\S]*?<\/__function>/gi, "")
+    .replace(/<function[^>]*>[\s\S]*?<\/__?function>/gi, "")
     .replace(/<__parameter=\w+>[\s\S]*?<\/__parameter>/gi, "")
+    .replace(/<\/?__?function[^>]*>/gi, "")
+    .replace(/^\s*thought:\s*$/gim, "")
     .trim();
 }
 
@@ -116,7 +119,7 @@ async function executeLeakedAction(parsed, userMessage) {
       originalRequest: parsed.params.originalRequest || parsed.params.title,
     });
 
-    return `Done! I added "${task.title}" to your list (due ${task.dueDate}, ${task.priority} priority).`;
+    return null;
   }
 
   if (parsed.action === "list") {
@@ -198,7 +201,7 @@ async function tryLocalIntent(userMessage) {
       }
     }
 
-    return 'I couldn\'t tell which task you finished. Try something like "I finished the DP assignment".';
+    return 'I couldn\'t identify the completed task. Please mention the task name, for example: "I finished Setup DynamoDB for Chatbot Data Storage."';
   }
 
   if (isListIntent(userMessage)) {
@@ -264,20 +267,16 @@ async function getAgentReply(message, sessionId) {
     return cleaned;
   }
 
-  if (leakedAction?.action === "create" && leakedAction.params.title) {
-    const task = await createTask({
-      title: leakedAction.params.title,
-      dueDate: leakedAction.params.dueDate,
-      category: leakedAction.params.category,
-      priority: leakedAction.params.priority,
-      originalRequest:
-        leakedAction.params.originalRequest || leakedAction.params.title,
-    });
-
-    return `Done! I added "${task.title}" to your list (due ${task.dueDate}, ${task.priority} priority).`;
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+  
+  const retryReply = await invokeBedrockAgent(message, sessionId);
+  const cleanedRetry = stripFunctionMarkup(retryReply);
+  
+  if (cleanedRetry && !isGenericAgentReply(cleanedRetry)) {
+    return cleanedRetry;
   }
-
-  return 'I couldn\'t figure out what to change. Try naming the task, like "I finished the DP assignment".';
+  
+  return "Please try again.";
 }
 
 function parseTaskIdFromPath(path) {

@@ -103,27 +103,25 @@ export default function Home() {
           <div className="sb-panel flex min-h-0 flex-col justify-center rounded-[1.75rem] p-5 sm:p-6">
             <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-[var(--sb-border)] bg-[var(--sb-cyan-dim)] px-3 py-1.5">
               <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sb-cyan)]" />
-              <span className="sb-label">AWS AI Agent Workshop</span>
+              <span className="sb-label">AI Engineering Assistant</span>
             </div>
 
             <h1 className="max-w-4xl text-2xl font-bold leading-tight tracking-tight text-[var(--sb-text)] sm:text-3xl lg:text-4xl">
-              Hello, welcome to your AI Task Agent
+              Plan engineering projects with AI
             </h1>
 
             <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--sb-text-muted)] sm:text-base">
-              Turn natural language into real actions using AWS. This workshop
-              shows how a Bedrock Agent can understand a request, select a tool,
-              and manage tasks through a serverless cloud workflow.
+              Describe your engineering project in natural language and ProjectPilot AI automatically 
+              generates an implementation plan, prioritizes tasks, and tracks your progress using 
+              Amazon Bedrock and serverless AWS services.
             </p>
 
             <blockquote className="mt-4 rounded-2xl border border-[var(--sb-border)] bg-[var(--sb-bg-elevated)] p-4">
               <p className="text-base font-semibold text-[var(--sb-text)] sm:text-lg">
-                “Don’t just ask AI for answers - teach it to take useful
-                actions.”
+                AI-powered planning for modern cloud engineering projects.
               </p>
               <p className="mt-1 text-xs text-[var(--sb-text-muted)] sm:text-sm">
-                In this project, the agent creates, lists, and updates tasks by
-                using backend tools.
+                Powered by Amazon Bedrock, AWS Lambda, API Gateway, and DynamoDB.
               </p>
             </blockquote>
           </div>
@@ -193,7 +191,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <p className="mt-2 text-xs text-[var(--sb-text-muted)] sm:text-sm">
-                    No urgent task due today. Open the workspace to create tasks
+                    No high-priority tasks due today. Open the workspace to create tasks
                     or ask the agent what is on your list.
                   </p>
                 )}
@@ -206,33 +204,32 @@ export default function Home() {
           <div className="sb-panel rounded-2xl p-4">
             <p className="sb-label">Step 1</p>
             <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              Chat naturally
+              Describe your project
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              Type requests like “Add a high priority task to finish README by
-              Friday.”
+              Describe your engineering idea using natural language.
             </p>
           </div>
 
           <div className="sb-panel rounded-2xl p-4">
             <p className="sb-label">Step 2</p>
             <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              Agent chooses a tool
+              AI generates a plan
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              Amazon Bedrock Agent decides whether to create, list, or update a
-              task.
+              Amazon Bedrock analyzes your request and 
+              creates a prioritized implementation plan.
             </p>
           </div>
 
           <div className="sb-panel rounded-2xl p-4">
             <p className="sb-label">Step 3</p>
             <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              Store in DynamoDB
+              Track project progress
             </h2>
             <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              The action group Lambda performs the task operation and saves data
-              in DynamoDB.
+              Manage completed and pending tasks while keeping project 
+              progress synchronized in DynamoDB.
             </p>
           </div>
         </section>
