@@ -101,8 +101,8 @@ export class AgentStack extends cdk.Stack {
     );
 
     const bedrockAgent = new bedrock.CfnAgent(this, "TaskTrackerAgent", {
-      agentName: "ProjectPilotAgent",
-      description: "AI-powered engineering project planning assistant",
+      agentName: "GoalCoachAgent",
+      description: "Autonomous AI goal coaching assistant",
       foundationModel: FOUNDATION_MODEL,
       instruction: AGENT_INSTRUCTION,
       agentResourceRoleArn: agentRole.roleArn,
@@ -156,8 +156,8 @@ export class AgentStack extends cdk.Stack {
     proxyFunction.node.addDependency(bedrockAgent);
 
     const api = new apigateway.RestApi(this, "AgentApi", {
-      restApiName: "ProjectPilot AI API",
-      description: "API for ProjectPilot AI",
+      restApiName: "Goal Coach AI API",
+      description: "API for Goal Coach AI",
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
         allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
