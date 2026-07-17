@@ -1,33 +1,36 @@
-# ProjectPilot AI – AI-Powered Engineering Project Planner
+# Goal Coach AI – AI-Powered Daily Goal Planning Assistant
 
-A beginner-friendly AWS workshop project where students build a serverless AI-powered task tracker using **Amazon Bedrock Agents**, **AWS Lambda**, **API Gateway**, **DynamoDB**, **AWS CDK**, and **AWS Amplify**.
+Goal Coach AI is a serverless AI-powered application that helps users achieve long-term goals through personalized daily coaching. Built with **Amazon Bedrock Agents**, **Amazon Nova**, **AWS Lambda**, **Amazon API Gateway**, **Amazon DynamoDB**, **Amazon EventBridge**, **Amazon SNS**, **AWS CDK**, and **Next.js**, the application automatically transforms a user's goal into focused daily actions.
 
-The app lets a user type a task in plain English. The AI agent extracts structured task details, stores the task in DynamoDB, and displays it in a dashboard.
+Users simply describe their goal, deadline, and available study time in natural language. The AI creates a personalized coaching plan, stores the goal in DynamoDB, and every morning automatically generates a new daily task and delivers it by email using Amazon SNS.
 
 ---
 
 ## Table of Contents
 
-- [What You Will Build](#what-you-will-build)
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [How It Works](#how-it-works)
 - [Tech Stack](#tech-stack)
 - [AWS Services Used](#aws-services-used)
 - [Repository Structure](#repository-structure)
-- [Cost Awareness](#cost-awareness)
+- [Screenshots](#screenshots)
 - [Prerequisites](#prerequisites)
 - [Create an AWS Account](#create-an-aws-account)
 - [Create an IAM User and Sign In With aws login](#create-an-iam-user-and-sign-in-with-aws-login)
 - [Important Region](#important-region)
 - [Enable Bedrock Model Access](#enable-bedrock-model-access)
-- [Fork the Repository](#fork-the-repository)
 - [Clone the Repository](#clone-the-repository)
 - [Install Frontend Dependencies](#install-frontend-dependencies)
 - [Run Frontend Locally](#run-frontend-locally)
 - [Deploy Backend](#deploy-backend)
 - [Connect Frontend to Backend](#connect-frontend-to-backend)
 - [Deploy Frontend With AWS Amplify](#deploy-frontend-with-aws-amplify)
+- [Test the Application](#test-the-application)
 - [Common Issues and Fixes](#common-issues-and-fixes)
+- [Future Improvements](#future-improvements)
 - [Destroy AWS Resources](#destroy-aws-resources)
-- [Final Test Prompts](#final-test-prompts)
 
 ---
 
@@ -44,84 +47,100 @@ Proxy Lambda
 ↓
 Amazon Bedrock Agent
 ↓
-Action Group Tool
-↓
 Action Group Lambda
 ↓
 Amazon DynamoDB
 ↓
-Frontend Task Dashboard
+Amazon EventBridge (Scheduled Every Morning)
+↓
+Morning Coach Lambda
+↓
+Amazon Nova
+↓
+Amazon SNS
+↓
+User Email
 ```
 
 Example user input:
 
 ```
-Add assignment due on June 25 for Digital Principles
+Pass the AWS Solutions Architect Associate exam by September 15, 2026.
+I can study 60 minutes per day.
 ```
 
-Example task stored in DynamoDB:
+Example goal stored in DynamoDB:
 
-```
+```json
 {
-  "taskId": "generated-id",
-  "title": "Digital Principles assignment",
-  "dueDate": "2026-06-25",
-  "category": "Digital Principles",
-  "priority": "medium",
-  "status": "pending",
-  "originalRequest": "Add assignment due on June 25 for Digital Principles"
+  "goal": "Pass the AWS Solutions Architect Associate exam",
+  "deadline": "2026-09-15",
+  "dailyMinutes": 60,
+  "status": "active",
+  "createdAt": "2026-07-17T14:30:00Z"
 }
 ```
 
+Example daily coaching email:
+
+```
+Today's Goal Coach Task
+
+Spend 60 minutes reviewing Amazon VPC fundamentals.
+
+Focus on:
+• CIDR blocks
+• Public vs Private Subnets
+• Route Tables
+```
 ---
 
 ## Why This Project Uses Bedrock Agents
 
-The goal of this workshop is not just to call a model and get text back.
+The goal of this project is not just to generate AI text.
 
-The goal is to show an **agentic workflow**:
+The goal is to build an **agentic workflow** where the AI understands a user's goal, decides what action to take, and interacts with backend services automatically.
 
 ```text
-Understand the request → choose a tool → perform an action → return the result
+Understand the goal → choose the appropriate tool → save the goal → automate daily coaching
 ```
 
-Amazon Bedrock Agent is used as the reasoning layer. It decides whether the user wants to:
+Amazon Bedrock Agent acts as the reasoning layer. It understands the user's natural language request and determines when to:
 
-- create a task
-- list tasks
-- update a task
-- mark a task as completed
+- create a new goal
+- save goal details
+- generate a personalized coaching plan
+- prepare the daily coaching workflow
 
-The agent uses an **Action Group** to call backend tools. The actual task operations are handled by a Lambda function and saved in DynamoDB.
+The agent uses an **Action Group** to call backend tools. The goal information is stored in Amazon DynamoDB, where it is later used by the scheduled morning workflow to generate personalized daily coaching.
 
 ---
 
 ## Current UI Flow
 
-The app is split into two pages to keep the experience clear and less congested.
+The application is divided into two pages to provide a simple and intuitive user experience.
 
-### Page 1: Overview
+### Page 1: Home
 
-The overview page includes:
+The home page includes:
 
-- welcome message
-- motivation quote
-- today’s summary
-- circular task completion percentage
-- active/completed/total task count
-- due-today reminder
-- button to open the task agent
+- application overview
+- active goal summary
+- coaching status
+- daily coaching information
+- architecture highlights
+- button to create or manage a goal
 
-### Page 2: AI Task Tracker
+### Page 2: Goal Workspace
 
 The workspace page includes:
 
-- Bedrock Agent chat panel
-- quick prompts
-- live task dashboard
-- filters for active/done/all tasks
-- task status updates
-- DynamoDB-backed task list
+- Amazon Bedrock Agent chat interface
+- quick goal examples
+- AI-powered goal creation
+- coaching workflow status
+- goal management
+- automatic morning coaching setup
 
 ---
 
@@ -141,13 +160,16 @@ The workspace page includes:
 - Amazon API Gateway
 - Amazon DynamoDB
 - Amazon Bedrock Agent
-- Bedrock Agent Action Group
-- OpenAPI schema for tools
+- Amazon Bedrock Action Group
+- Amazon Nova
+- Amazon EventBridge
+- Amazon SNS
+- OpenAPI schema
 - CloudWatch Logs
 
 ### Deployment
 
-- AWS CDK for backend deployment
+- AWS CDK for infrastructure deployment
 - AWS Amplify for frontend hosting
 - GitHub for source control
 
@@ -157,38 +179,51 @@ The workspace page includes:
 
 ### Amazon Bedrock Agent
 
-Acts as the AI agent that understands user intent and decides which backend tool to call.
+Acts as the AI reasoning engine that understands the user's goal and determines how to process the request.
 
-### Bedrock Action Group
+### Amazon Bedrock Action Group
 
-Defines the tools available to the agent using an OpenAPI schema.
+Provides the backend tools the agent can invoke through an OpenAPI schema to create and manage user goals.
 
 ### AWS Lambda
 
-The project uses two Lambda areas:
+The project uses three Lambda functions:
 
-- **Proxy Lambda**: receives frontend requests and invokes the Bedrock Agent
-- **Action Group Lambda**: performs task operations such as create, list, and update
+- **Proxy Lambda**: receives frontend requests and invokes the Amazon Bedrock Agent.
+- **Action Group Lambda**: processes agent requests and stores goal information in DynamoDB.
+- **Morning Coach Lambda**: runs every morning, generates a personalized daily coaching task, and sends it by email.
 
 ### Amazon API Gateway
 
-Exposes a public HTTPS endpoint for the frontend.
+Provides a secure REST API that connects the Next.js frontend with the backend.
 
 ### Amazon DynamoDB
 
-Stores task records.
+Stores user goals, deadlines, study time, and coaching status.
+
+### Amazon EventBridge
+
+Triggers the Morning Coach Lambda automatically every morning.
+
+### Amazon Nova
+
+Generates personalized daily coaching tasks based on the user's goal and progress.
+
+### Amazon SNS
+
+Delivers the generated coaching task to the user's email.
 
 ### AWS CDK
 
-Defines and deploys the backend infrastructure.
+Defines and deploys the complete serverless infrastructure as code.
 
-### CloudWatch
+### Amazon CloudWatch
 
-Stores logs for debugging backend issues.
+Stores logs for monitoring and debugging Lambda functions.
 
 ### AWS Amplify
 
-Hosts the frontend application.
+Hosts the Next.js frontend application.
 
 ---
 

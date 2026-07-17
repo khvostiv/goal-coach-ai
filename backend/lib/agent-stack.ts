@@ -7,39 +7,55 @@ import * as dynamodb from "aws-cdk-lib/aws-dynamodb";
 import * as lambda from "aws-cdk-lib/aws-lambda";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
+import * as events from "aws-cdk-lib/aws-events";
+import * as targets from "aws-cdk-lib/aws-events-targets";
+import * as sns from "aws-cdk-lib/aws-sns";
+import * as subscriptions from "aws-cdk-lib/aws-sns-subscriptions";
 
 // Use the global inference profile for Nova 2 Lite (required for on-demand use).
 export const FOUNDATION_MODEL = "global.amazon.nova-2-lite-v1:0";
 
-const AGENT_INSTRUCTION = `You are ProjectPilot AI, an engineering project planning assistant.
+const AGENT_INSTRUCTION = `
+You are Goal Coach AI.
 
-When the user describes an engineering project:
+Your only job is to save user goals.
 
-1. Create a concise implementation plan with 5 numbered steps.
-2. Select the first practical step from that plan.
-3. Call createTask exactly ONCE to save that first step.
-4. Then show the full 5-step plan in friendly plain English.
+Required information:
+- goal
+- deadline (date or duration)
+- dailyMinutes
 
-For the saved task use:
-- short clear title
-- relevant category
-- priority high, medium, or low
-- dueDate unknown unless provided
-- originalRequest equal to the user's exact message
+If any information is missing, ask ONLY for the missing information.
 
-Never call createTask more than once per message.
-Never display tool calls, XML, function tags, JSON, or internal syntax.
+When all three values are available:
 
-When asked to list tasks, call listTasks.
-When asked to update a task, call listTasks first and then updateTask.
+1. Immediately call createGoalPlan exactly once.
+2. Pass:
+   - goal
+   - deadline
+   - dailyMinutes
+3. Never explain that you are calling a function.
+4. Never generate a plan before calling createGoalPlan.
+5. Never output JSON.
+6. Never output reasoning.
+7. Never say "I will call..."
+8. Never say "I will generate..."
+9. Never expose tool names.
 
-Keep responses concise and practical.`;
+If createGoalPlan succeeds, respond exactly:
+
+GOAL_CREATED
+
+Your goal has been created successfully.
+
+If createGoalPlan fails, simply apologize.
+`;
 
 export class AgentStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    const tasksTable = new dynamodb.Table(this, "TasksTable", {
+    const goalPlansTable = new dynamodb.Table(this, "GoalPlansTable", {
       partitionKey: {
         name: "taskId",
         type: dynamodb.AttributeType.STRING,
@@ -50,7 +66,7 @@ export class AgentStack extends cdk.Stack {
 
     const agentRole = new iam.Role(this, "BedrockAgentRole", {
       assumedBy: new iam.ServicePrincipal("bedrock.amazonaws.com"),
-      description: "Service role for the task tracker Bedrock Agent",
+      description: "Service role for the Goal Coach Bedrock Agent",
     });
 
     const agentRolePolicy = new iam.Policy(this, "BedrockAgentRolePolicy", {
@@ -81,11 +97,11 @@ export class AgentStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       environment: {
-        TASKS_TABLE_NAME: tasksTable.tableName,
+        TASKS_TABLE_NAME: goalPlansTable.tableName,
       },
     });
 
-    tasksTable.grantReadWriteData(actionGroupFunction);
+    goalPlansTable.grantReadWriteData(actionGroupFunction);
     actionGroupFunction.grantInvoke(agentRole);
 
     actionGroupFunction.addPermission("AllowBedrockAgentInvoke", {
@@ -100,7 +116,7 @@ export class AgentStack extends cdk.Stack {
       "utf-8"
     );
 
-    const bedrockAgent = new bedrock.CfnAgent(this, "TaskTrackerAgent", {
+    const bedrockAgent = new bedrock.CfnAgent(this, "GoalCoachAgentResource", {
       agentName: "GoalCoachAgent",
       description: "Autonomous AI goal coaching assistant",
       foundationModel: FOUNDATION_MODEL,
@@ -110,10 +126,10 @@ export class AgentStack extends cdk.Stack {
       idleSessionTtlInSeconds: 600,
       actionGroups: [
         {
-          actionGroupName: "TaskManagement",
+          actionGroupName: "GoalPlanning",
           actionGroupState: "ENABLED",
           description:
-          "Create, list, and update engineering project tasks stored in DynamoDB",
+          "Create and retrieve AI-generated goal plans stored in DynamoDB",
           actionGroupExecutor: {
             lambda: actionGroupFunction.functionArn,
           },
@@ -135,13 +151,62 @@ export class AgentStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(60),
       memorySize: 1024,
       environment: {
-        TASKS_TABLE_NAME: tasksTable.tableName,
+        TASKS_TABLE_NAME: goalPlansTable.tableName,
         AGENT_ID: bedrockAgent.attrAgentId,
         AGENT_ALIAS_ID: "TSTALIASID",
       },
     });
 
-    tasksTable.grantReadWriteData(proxyFunction);
+    const morningTopic = new sns.Topic(this, "MorningCoachTopic", {
+      displayName: "Goal Coach Daily Messages",
+    });
+
+    morningTopic.addSubscription(
+      new subscriptions.EmailSubscription("vasilina664@gmail.com")
+    );
+
+    const morningCoachFunction = new lambda.Function(this, "MorningCoachFunction", {
+      runtime: lambda.Runtime.NODEJS_22_X,
+      handler: "index.handler",
+      code: lambda.Code.fromAsset(
+        path.join(__dirname, "../lambda/morning-coach")
+      ),
+      timeout: cdk.Duration.seconds(30),
+      memorySize: 512,
+      environment: {
+        TASKS_TABLE_NAME: goalPlansTable.tableName,
+        TOPIC_ARN: morningTopic.topicArn,
+      },
+    });
+
+
+    morningTopic.grantPublish(morningCoachFunction);
+
+    const morningRule = new events.Rule(this, "MorningCoachSchedule", {
+      ruleName: "GoalCoachMorningSchedule",
+      schedule: events.Schedule.cron({
+        minute: "0",
+        hour: "3",
+      }),
+    });
+
+    morningCoachFunction.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock:InvokeModel"],
+        resources: [
+          `arn:aws:bedrock:${this.region}:${this.account}:inference-profile/${FOUNDATION_MODEL}`,
+          `arn:aws:bedrock:*::foundation-model/amazon.nova-2-lite-v1:0`,
+        ],
+      })
+    );
+    
+    morningRule.addTarget(
+      new targets.LambdaFunction(morningCoachFunction)
+    );
+    
+    goalPlansTable.grantReadData(morningCoachFunction);
+
+    goalPlansTable.grantReadWriteData(proxyFunction);
 
     proxyFunction.addToRolePolicy(
       new iam.PolicyStatement({
@@ -160,7 +225,7 @@ export class AgentStack extends cdk.Stack {
       description: "API for Goal Coach AI",
       defaultCorsPreflightOptions: {
         allowOrigins: apigateway.Cors.ALL_ORIGINS,
-        allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allowMethods: ["GET", "POST", "OPTIONS"],
         allowHeaders: ["Content-Type"],
       },
     });
@@ -170,19 +235,8 @@ export class AgentStack extends cdk.Stack {
       new apigateway.LambdaIntegration(proxyFunction)
     );
 
-    const tasksResource = api.root.addResource("tasks");
-    tasksResource.addMethod(
+    api.root.addResource("goals").addMethod(
       "GET",
-      new apigateway.LambdaIntegration(proxyFunction)
-    );
-
-    const taskResource = tasksResource.addResource("{taskId}");
-    taskResource.addMethod(
-      "PATCH",
-      new apigateway.LambdaIntegration(proxyFunction)
-    );
-    taskResource.addMethod(
-      "DELETE",
       new apigateway.LambdaIntegration(proxyFunction)
     );
 

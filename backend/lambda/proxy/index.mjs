@@ -3,13 +3,7 @@ import {
   InvokeAgentCommand,
 } from "@aws-sdk/client-bedrock-agent-runtime";
 import { randomUUID } from "crypto";
-import { createTask, deleteTask, listTasks, updateTask } from "./tasks-db.mjs";
-import {
-  isCompleteIntent,
-  isGenericAgentReply,
-  isListIntent,
-  pickBestTaskMatch,
-} from "./task-intent.mjs";
+import { listGoalPlans } from "./tasks-db.mjs";
 
 const bedrockAgent = new BedrockAgentRuntimeClient({
   region: process.env.AWS_REGION || "us-east-1",
@@ -25,7 +19,7 @@ function response(statusCode, body) {
       "Content-Type": "application/json",
       "Access-Control-Allow-Origin": "*",
       "Access-Control-Allow-Headers": "Content-Type",
-      "Access-Control-Allow-Methods": "GET,POST,PATCH,DELETE,OPTIONS",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
     },
     body: JSON.stringify(body),
   };
@@ -39,172 +33,6 @@ function stripFunctionMarkup(text) {
     .replace(/<\/?__?function[^>]*>/gi, "")
     .replace(/^\s*thought:\s*$/gim, "")
     .trim();
-}
-
-function parseLeakedAgentAction(text) {
-  if (!text.includes("__parameter=") && !text.includes("__function=")) {
-    return null;
-  }
-
-  const params = {};
-
-  for (const match of text.matchAll(
-    /<__parameter=(\w+)>([\s\S]*?)<\/__parameter>/gi
-  )) {
-    params[match[1]] = match[2].trim();
-  }
-
-  const fnMatch = text.match(/<__function=(\w+)/i);
-  const httpMethod = fnMatch?.[1]?.toLowerCase() ?? "";
-
-  if (httpMethod === "get" || /listtasks/i.test(text)) {
-    return { action: "list", params };
-  }
-
-  if (
-    httpMethod === "patch" ||
-    params.taskId ||
-    params.status ||
-    /updatetask/i.test(text)
-  ) {
-    return { action: "update", params };
-  }
-
-  if (httpMethod === "post" || params.title || /createtask/i.test(text)) {
-    return { action: "create", params };
-  }
-
-  return null;
-}
-
-async function resolveUpdateTarget(params, userMessage) {
-  if (params.taskId) {
-    return { type: "match", taskId: params.taskId };
-  }
-
-  const tasks = await listTasks();
-  const match = pickBestTaskMatch(userMessage, tasks);
-
-  if (match.type === "match") {
-    return { type: "match", taskId: match.task.taskId };
-  }
-
-  if (match.type === "ambiguous") {
-    const names = match.candidates.map((task) => `"${task.title}"`).join(", ");
-    return {
-      type: "ambiguous",
-      message: `Which task did you mean? I found: ${names}`,
-    };
-  }
-
-
-  return { type: "none" };
-}
-
-async function executeLeakedAction(parsed, userMessage) {
-  if (parsed.action === "create") {
-    if (!parsed.params.title?.trim()) {
-      return null;
-    }
-  
-    const task = await createTask({
-      title: parsed.params.title,
-      dueDate: parsed.params.dueDate,
-      category: parsed.params.category,
-      priority: parsed.params.priority,
-      originalRequest: parsed.params.originalRequest || parsed.params.title,
-    });
-  
-    return `Your first task "${task.title}" has been created and added to your active tasks.`;
-  }
-
-  if (parsed.action === "list") {
-    const tasks = await listTasks();
-
-    if (tasks.length === 0) {
-      return "Your list is empty right now.";
-    }
-
-    const lines = tasks.map(
-      (task) =>
-        `- ${task.title} [${task.status}] due ${task.dueDate} (${task.priority} priority)`
-    );
-
-    return `Here's your list:\n${lines.join("\n")}`;
-  }
-
-  if (parsed.action === "update") {
-    const updates = { ...parsed.params };
-
-    if (!updates.status && isCompleteIntent(userMessage)) {
-      updates.status = "completed";
-    }
-
-    const target = await resolveUpdateTarget(updates, userMessage);
-
-    if (target.type === "ambiguous") {
-      return target.message;
-    }
-
-    if (target.type !== "match") {
-      return null;
-    }
-
-    const task = await updateTask(target.taskId, updates);
-
-    if (!task) {
-      return "I couldn't find that task to update.";
-    }
-
-    if (task.status === "completed") {
-      return `Nice work! I marked "${task.title}" as done.`;
-    }
-
-    return `Updated "${task.title}" — status is now ${task.status}.`;
-  }
-
-  return null;
-}
-
-async function tryLocalIntent(userMessage) {
-  if (isCompleteIntent(userMessage)) {
-    const tasks = await listTasks();
-    const match = pickBestTaskMatch(userMessage, tasks);
-
-    if (match.type === "ambiguous") {
-      const names = match.candidates.map((task) => `"${task.title}"`).join(", ");
-      return `Which task did you finish? I found: ${names}`;
-    }
-
-    if (match.type === "match") {
-      const updated = await updateTask(match.task.taskId, {
-        status: "completed",
-      });
-
-      if (updated) {
-        return `Nice work! I marked "${updated.title}" as done.`;
-      }
-    }
-
-    return 'I couldn\'t identify the completed task. Please mention the task name, for example: "I finished Setup DynamoDB for Chatbot Data Storage."';
-  }
-
-  if (isListIntent(userMessage)) {
-    const tasks = await listTasks();
-
-    if (tasks.length === 0) {
-      return "Your list is empty right now.";
-    }
-
-    const lines = tasks.map(
-      (task) =>
-        `- ${task.title} [${task.status}] due ${task.dueDate} (${task.priority} priority)`
-    );
-
-    return `Here's your list:\n${lines.join("\n")}`;
-  }
-
-  return null;
 }
 
 async function invokeBedrockAgent(message, sessionId) {
@@ -231,64 +59,13 @@ async function invokeBedrockAgent(message, sessionId) {
 }
 
 async function getAgentReply(message, sessionId) {
-  // Handle list and completion requests locally first.
-  // This prevents Bedrock from updating the wrong task.
-  const localReply = await tryLocalIntent(message);
-
-  if (localReply) {
-    return localReply;
-  }
-
   const rawReply = await invokeBedrockAgent(message, sessionId);
-  const leakedAction = parseLeakedAgentAction(rawReply);
+  const cleanedReply = stripFunctionMarkup(rawReply);
 
-  if (leakedAction) {
-    const executed = await executeLeakedAction(leakedAction, message);
-
-    if (executed) {
-      return executed;
-    }
-  }
-
-  const cleaned = stripFunctionMarkup(rawReply);
-
-  if (cleaned && !isGenericAgentReply(cleaned)) {
-    return cleaned;
-  }
-
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-
-  const retryReply = await invokeBedrockAgent(message, sessionId);
-  const retryLeakedAction = parseLeakedAgentAction(retryReply);
-
-  // Also execute leaked actions returned by the retry.
-  if (retryLeakedAction) {
-    const executed = await executeLeakedAction(retryLeakedAction, message);
-
-    if (executed) {
-      return executed;
-    }
-  }
-
-  const cleanedRetry = stripFunctionMarkup(retryReply);
-
-  if (cleanedRetry && !isGenericAgentReply(cleanedRetry)) {
-    return cleanedRetry;
-  }
-
-  return "I couldn't complete that request. Please try again.";
-}
-
-
-function parseTaskIdFromPath(path) {
-  const segments = path.split("/").filter(Boolean);
-  const tasksIndex = segments.indexOf("tasks");
-
-  if (tasksIndex === -1 || tasksIndex === segments.length - 1) {
-    return null;
-  }
-
-  return segments[tasksIndex + 1];
+  return (
+    cleanedReply ||
+    "I couldn't complete that request. Please try again."
+  );
 }
 
 export async function handler(event) {
@@ -299,41 +76,9 @@ export async function handler(event) {
 
     const path = event.path?.replace(/\/+$/, "") || "";
 
-    if (event.httpMethod === "GET" && path.endsWith("/tasks")) {
-      const tasks = await listTasks();
-      return response(200, { tasks });
-    }
-
-    if (event.httpMethod === "PATCH" && path.includes("/tasks/")) {
-      const taskId = parseTaskIdFromPath(path);
-
-      if (!taskId) {
-        return response(400, { error: "taskId is required" });
-      }
-
-      if (!event.body) {
-        return response(400, { error: "Missing request body" });
-      }
-
-      const body = JSON.parse(event.body);
-      const task = await updateTask(taskId, body);
-
-      if (!task) {
-        return response(404, { error: `Task not found: ${taskId}` });
-      }
-
-      return response(200, { message: "Task updated", task });
-    }
-
-    if (event.httpMethod === "DELETE" && path.includes("/tasks/")) {
-      const taskId = parseTaskIdFromPath(path);
-
-      if (!taskId) {
-        return response(400, { error: "taskId is required" });
-      }
-
-      await deleteTask(taskId);
-      return response(200, { message: "Task deleted" });
+    if (event.httpMethod === "GET" && path.endsWith("/goals")) {
+      const goals = await listGoalPlans();
+      return response(200, { goals });
     }
 
     if (event.httpMethod === "POST" && path.endsWith("/chat")) {
@@ -355,15 +100,41 @@ export async function handler(event) {
       }
 
       const sessionId = body.sessionId?.trim() || randomUUID();
-      const agentReply = await getAgentReply(body.message.trim(), sessionId);
 
+      const goalsBefore = await listGoalPlans();
+      const existingGoalIds = new Set(
+        goalsBefore.map((goal) => goal.taskId)
+      );
+      
+      const agentReply = await getAgentReply(
+        body.message.trim(),
+        sessionId
+      );
+      
+      let goalCreated = false;
+      
+      for (let attempt = 0; attempt < 3; attempt++) {
+        const goalsAfter = await listGoalPlans();
+      
+        goalCreated = goalsAfter.some(
+          (goal) => !existingGoalIds.has(goal.taskId)
+        );
+      
+        if (goalCreated) {
+          break;
+        }
+      
+        await new Promise((resolve) => setTimeout(resolve, 300));
+      }
+      
       return response(200, {
         message: agentReply,
         sessionId,
+        goalCreated,
       });
     }
 
-    return response(405, { error: "Method not allowed" });
+    return response(404, { error: "Route not found" });
   } catch (error) {
     console.error(error);
 

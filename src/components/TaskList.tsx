@@ -78,8 +78,8 @@ export function TaskList({
       <header className="shrink-0 border-b border-[var(--sb-border)] px-5 py-3">
         <div className="mb-3 flex items-center justify-between gap-4">
           <div>
-            <p className="sb-label">Project Dashboard</p>
-            <h2 className="text-base font-bold text-[var(--sb-text)]">Implementation Plan</h2>
+            <p className="sb-label">Goal Dashboard</p>
+            <h2 className="text-base font-bold text-[var(--sb-text)]">Today's Goal</h2>
           </div>
 
           <button
@@ -88,7 +88,7 @@ export function TaskList({
             disabled={isRefreshing}
             className="sb-btn-outline rounded-xl px-3 py-1.5 text-sm disabled:opacity-50"
           >
-            {isRefreshing ? "Updating..." : "Sync"}
+            {isRefreshing ? "Updating..." : "Refresh"}
           </button>
         </div>
 
@@ -96,7 +96,7 @@ export function TaskList({
           <div className="flex-1">
             <div className="h-2 overflow-hidden rounded-full bg-white/10">
               <div
-                className="h-full rounded-full bg-gradient-to-r from-violet-500 to-fuchsia-500 transition-all duration-500"
+                className="h-full rounded-full bg-gradient-to-r from-blue-600 to-sky-500 transition-all duration-500"
                 style={{ width: `${completionPercent}%` }}
               />
             </div>
@@ -117,7 +117,7 @@ export function TaskList({
               onClick={() => onFilterChange(item.id)}
               className={`rounded-lg px-2.5 py-1 font-[family-name:var(--font-mono)] text-[0.6875rem] font-bold uppercase tracking-wider transition ${
                 filter === item.id
-                  ? "bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white"
+                  ? "bg-gradient-to-r from-blue-600 to-sky-500 text-white"
                   : "border border-[var(--sb-border)] text-[var(--sb-text-muted)] hover:border-[var(--sb-cyan)] hover:text-[var(--sb-cyan)]"
               }`}
             >
@@ -132,20 +132,20 @@ export function TaskList({
           <div className="flex h-full min-h-[280px] flex-col items-center justify-center rounded-3xl border border-dashed border-[var(--sb-border)] px-6 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-[var(--sb-border-strong)] bg-[var(--sb-cyan-dim)]">
               <span className="font-[family-name:var(--font-mono)] text-xl text-[var(--sb-cyan)]">
-                PP
+                AI
               </span>
             </div>
 
             <p className="mt-4 font-bold text-[var(--sb-text)]">
               {filter === "done"
-                ? "No completed project steps"
+                ? "No completed goals"
                 : filter === "active"
-                  ? "No active project steps"
-                  : "No project plan generated yet"}
+                ? "No active goals"
+                : "No goal plan created yet"}
             </p>
 
             <p className="mt-2 max-w-xs text-sm text-[var(--sb-text-muted)]">
-              Describe your software, cloud, AI or data engineering project and ProjectPilot AI will generate a complete implementation roadmap.
+              Describe your goal, deadline, and available study time. Goal Coach AI will generate your personalized daily learning plan.
             </p>
           </div>
         ) : (
@@ -156,7 +156,7 @@ export function TaskList({
             return (
               <article
                 key={task.taskId}
-                className={`group sb-stat-card relative rounded-3xl p-5 transition duration-300 hover:scale-[1.01] hover:shadow-[0_0_35px_rgba(168,85,247,.25)] ${
+                className={`group sb-stat-card relative rounded-3xl p-5 transition duration-300 hover:scale-[1.01] hover:shadow-[0_0_35px_rgba(59,130,246,.22)] ${
                   isDone ? "opacity-70" : "hover:border-[var(--sb-border-strong)]"
                 }`}
               >
@@ -184,7 +184,7 @@ export function TaskList({
                     }
                     className={`mt-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border transition disabled:opacity-50 ${
                       isDone
-                        ? "border-violet-500 bg-gradient-to-r from-violet-600 to-fuchsia-600 text-white"
+                        ? "border-blue-500 bg-gradient-to-r from-blue-600 to-sky-500 text-white"
                         : "border-[var(--sb-border-strong)] bg-transparent hover:border-[var(--sb-cyan)]"
                     }`}
                   >
@@ -249,7 +249,7 @@ export function TaskList({
 
                     {task.originalRequest && (
                       <p className="mt-3 rounded-2xl border border-[var(--sb-border)] bg-[var(--sb-bg)] px-3 py-2 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-                        Project: {task.originalRequest}
+                        Goal: {task.originalRequest}
                       </p>
                     )}
                   </div>
@@ -261,7 +261,7 @@ export function TaskList({
       </div>
 
       <footer className="shrink-0 border-t border-[var(--sb-border)] px-5 py-4 text-xs text-[var(--sb-text-muted)]">
-        Track your engineering project by completing steps or asking ProjectPilot AI to update your plan.
+        Stay consistent every day and Goal Coach AI will help you achieve your long-term goal.
       </footer>
     </section>
   );

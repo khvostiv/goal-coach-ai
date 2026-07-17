@@ -1,12 +1,9 @@
-import { createTask, listTasks, updateTask } from "./tasks-db.mjs";
-
-function getParameter(parameters, name) {
-  return parameters?.find((parameter) => parameter.name === name)?.value;
-}
+import { createGoalPlan, listGoalPlans } from "./tasks-db.mjs";
 
 function getBodyProperties(event) {
   const properties =
     event.requestBody?.content?.["application/json"]?.properties ?? [];
+
   const result = {};
 
   for (const property of properties) {
@@ -41,67 +38,34 @@ export async function handler(event) {
   try {
     const { apiPath, httpMethod } = event;
 
-    if (apiPath === "/tasks" && httpMethod === "POST") {
+    if (apiPath === "/goals" && httpMethod === "POST") {
       const body = getBodyProperties(event);
 
-      if (!body.title?.trim()) {
+      if (!body.goal?.trim()) {
         return actionResponse(event, 400, {
-          error: "title is required to create a task",
+          error: "goal is required",
         });
       }
 
-      const task = await createTask({
-        title: body.title.trim(),
-        dueDate: body.dueDate,
-        category: body.category,
-        priority: body.priority,
-        originalRequest: body.originalRequest || body.title,
+      const goalPlan = await createGoalPlan({
+        goal: body.goal.trim(),
+        deadline: body.deadline,
+        dailyMinutes: Number(body.dailyMinutes),
+        plan: "[]",
       });
 
       return actionResponse(event, 200, {
-        message: `Task created: ${task.title}`,
-        task,
+        message: `Goal plan created: ${goalPlan.goal}`,
+        goalPlan,
       });
     }
 
-    if (apiPath === "/tasks" && httpMethod === "GET") {
-      const tasks = await listTasks();
+    if (apiPath === "/goals" && httpMethod === "GET") {
+      const goalPlans = await listGoalPlans();
 
       return actionResponse(event, 200, {
-        count: tasks.length,
-        tasks,
-      });
-    }
-
-    if (apiPath.startsWith("/tasks/") && httpMethod === "PATCH") {
-      const taskId =
-        getParameter(event.parameters, "taskId") ||
-        apiPath.split("/").filter(Boolean).pop();
-
-      if (!taskId) {
-        return actionResponse(event, 400, {
-          error: "taskId is required",
-        });
-      }
-
-      const body = getBodyProperties(event);
-      const task = await updateTask(taskId, {
-        status: body.status,
-        priority: body.priority,
-        title: body.title,
-        dueDate: body.dueDate,
-        category: body.category,
-      });
-
-      if (!task) {
-        return actionResponse(event, 404, {
-          error: `Task not found: ${taskId}`,
-        });
-      }
-
-      return actionResponse(event, 200, {
-        message: `Task updated: ${task.title}`,
-        task,
+        count: goalPlans.length,
+        goalPlans,
       });
     }
 

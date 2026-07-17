@@ -4,6 +4,33 @@ export function normalizeApiUrl(url: string | undefined) {
   return url?.replace(/\/+$/, "") ?? "";
 }
 
+export type GoalPlan = {
+  taskId: string;
+  goal: string;
+  deadline: string;
+  dailyMinutes: number;
+  status: string;
+  createdAt: string;
+};
+
+export async function fetchGoals(apiUrl: string): Promise<GoalPlan[]> {
+  const response = await fetch(`${apiUrl}/goals`, {
+    method: "GET",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    cache: "no-store",
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch goals: ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  return Array.isArray(data) ? data : data.goals ?? [];
+}
+
 export async function fetchTasks(apiUrl: string): Promise<Task[]> {
   const response = await fetch(`${apiUrl}/tasks`);
   const data = await response.json();
@@ -59,7 +86,12 @@ export async function sendChatMessage(
   apiUrl: string,
   message: string,
   sessionId: string
-): Promise<{ message: string; sessionId: string }> {
+): Promise<{
+  message: string;
+  sessionId: string;
+  goalCreated?: boolean;
+}> {
+
   const response = await fetch(`${apiUrl}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },

@@ -1,236 +1,308 @@
 "use client";
 
-//import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
 import { SiteHeader } from "@/components/SiteHeader";
-import { fetchTasks, normalizeApiUrl } from "@/lib/api";
-import type { Task } from "@/types/task";
-
-function isDueToday(task: Task) {
-  if (!task.dueDate || task.dueDate === "unknown") return false;
-
-  const today = new Date().toISOString().split("T")[0];
-  return task.dueDate === today && task.status !== "completed";
-}
-
-function ProgressCircle({ percent }: { percent: number }) {
-  const radius = 56;
-  const stroke = 10;
-  const normalizedRadius = radius - stroke / 2;
-  const circumference = normalizedRadius * 2 * Math.PI;
-  const strokeDashoffset = circumference - (percent / 100) * circumference;
-
-  return (
-    <div className="relative flex h-36 w-36 shrink-0 items-center justify-center">
-      <svg height={radius * 2} width={radius * 2} className="-rotate-90">
-        <circle
-          stroke="rgba(255,255,255,0.12)"
-          fill="transparent"
-          strokeWidth={stroke}
-          r={normalizedRadius}
-          cx={radius}
-          cy={radius}
-        />
-        <circle
-          stroke="var(--sb-cyan)"
-          fill="transparent"
-          strokeWidth={stroke}
-          strokeLinecap="round"
-          strokeDasharray={`${circumference} ${circumference}`}
-          strokeDashoffset={strokeDashoffset}
-          r={normalizedRadius}
-          cx={radius}
-          cy={radius}
-          className="transition-all duration-700"
-        />
-      </svg>
-
-      <div className="absolute text-center">
-        <p className="text-3xl font-bold text-[var(--sb-text)]">{percent}%</p>
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--sb-text-muted)]">
-          Complete
-        </p>
-      </div>
-    </div>
-  );
-}
+import {
+  fetchGoals,
+  normalizeApiUrl,
+  type GoalPlan,
+} from "@/lib/api";
 
 export default function Home() {
-  const apiUrl = normalizeApiUrl(process.env.NEXT_PUBLIC_API_URL);
+  const apiUrl = normalizeApiUrl(
+    process.env.NEXT_PUBLIC_API_URL
+  );
 
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [isLoading, setIsLoading] = useState(Boolean(apiUrl));
+  const [goals, setGoals] = useState<GoalPlan[]>([]);
+  const [isLoading, setIsLoading] = useState(
+    Boolean(apiUrl)
+  );
 
-  const activeTasks = tasks.filter((task) => task.status === "pending");
-  const completedTasks = tasks.filter((task) => task.status === "completed");
-  const dueTodayTasks = tasks.filter(isDueToday);
-
-  const completionPercent = useMemo(() => {
-    if (tasks.length === 0) return 0;
-    return Math.round((completedTasks.length / tasks.length) * 100);
-  }, [completedTasks.length, tasks.length]);
+  const activeGoal = [...goals]
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() -
+        new Date(a.createdAt).getTime()
+    )
+    .find((goal) => goal.status === "active");
 
   useEffect(() => {
-    if (!apiUrl) return;
+    if (!apiUrl) {
+      setIsLoading(false);
+      return;
+    }
 
     let cancelled = false;
 
-    fetchTasks(apiUrl)
-      .then((nextTasks) => {
-        if (!cancelled) setTasks(nextTasks);
-      })
-      .catch(() => {
-        if (!cancelled) setTasks([]);
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+    async function loadGoals() {
+      setIsLoading(true);
+
+      try {
+        const nextGoals = await fetchGoals(apiUrl);
+
+        if (!cancelled) {
+          setGoals(nextGoals);
+        }
+      } catch (error) {
+        console.error("Failed to load goals:", error);
+
+        if (!cancelled) {
+          setGoals([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadGoals();
+
+    const handleFocus = () => {
+      loadGoals();
+    };
+
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", handleFocus);
     };
   }, [apiUrl]);
 
   return (
-    <div className="relative flex h-screen flex-col overflow-hidden">
-      <div className="pointer-events-none fixed left-1/2 top-[-240px] h-[460px] w-[460px] -translate-x-1/2 rounded-full bg-[var(--sb-cyan)]/20 blur-3xl" />
-      <div className="pointer-events-none fixed bottom-[-260px] right-[-160px] h-[520px] w-[520px] rounded-full bg-blue-500/10 blur-3xl" />
-
+    <div className="sb-page-shell min-h-screen">
       <SiteHeader />
 
-      <main className="relative z-10 mx-auto flex min-h-0 w-full max-w-7xl flex-1 flex-col px-4 py-3 sm:px-6 lg:px-8">
-        <section className="grid min-h-0 flex-1 gap-3 lg:grid-cols-[1.05fr_0.95fr] lg:items-stretch">
-          <div className="sb-panel flex min-h-0 flex-col justify-center rounded-[1.75rem] p-5 sm:p-6">
-            <div className="mb-3 inline-flex w-fit items-center gap-2 rounded-full border border-[var(--sb-border)] bg-[var(--sb-cyan-dim)] px-3 py-1.5">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-[var(--sb-cyan)]" />
-              <span className="sb-label">AI Engineering Assistant</span>
-            </div>
+      <main className="mx-auto w-full max-w-7xl px-5 py-10 sm:px-8 lg:py-14">
+        <section className="grid gap-10 lg:grid-cols-[1fr_420px] lg:items-start">
+          <div className="pt-2">
 
-            <h1 className="max-w-4xl text-2xl font-bold leading-tight tracking-tight text-[var(--sb-text)] sm:text-3xl lg:text-4xl">
-              Plan engineering projects with AI
+            <h1 className="mt-7 max-w-3xl text-4xl font-bold leading-[1.05] tracking-[-0.04em] text-white sm:text-5xl lg:text-6xl">
+              One goal.
+              <br />
+              One focused action
+              <br />
+              every morning.
             </h1>
 
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-[var(--sb-text-muted)] sm:text-base">
-              Describe your engineering project in natural language and ProjectPilot AI automatically 
-              generates an implementation plan, prioritizes tasks, and tracks your progress using 
-              Amazon Bedrock and serverless AWS services.
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-200 sm:text-lg">
+              Goal Coach AI turns your long-term goal into
+              practical daily coaching. Set your objective once,
+              then receive a personalized task directly in your
+              inbox every morning.
             </p>
 
-            <blockquote className="mt-4 rounded-2xl border border-[var(--sb-border)] bg-[var(--sb-bg-elevated)] p-4">
-              <p className="text-base font-semibold text-[var(--sb-text)] sm:text-lg">
-                AI-powered planning for modern cloud engineering projects.
-              </p>
-              <p className="mt-1 text-xs text-[var(--sb-text-muted)] sm:text-sm">
-                Powered by Amazon Bedrock, AWS Lambda, API Gateway, and DynamoDB.
-              </p>
-            </blockquote>
-          </div>
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              <Link
+                href="/workspace"
+                className="inline-flex items-center justify-center rounded-xl border border-blue-400/20 bg-gradient-to-r from-blue-600 to-sky-500 px-6 py-3.5 text-center text-sm font-semibold text-white shadow-[0_10px_30px_rgba(59,130,246,0.28)] transition-all duration-200 hover:scale-[1.02] hover:from-blue-500 hover:to-sky-400 hover:shadow-[0_14px_36px_rgba(59,130,246,0.38)] active:scale-[0.98]"
+              >
+                {activeGoal
+                  ? "Manage My Goal"
+                  : "Create My First Goal"}
+              </Link>
 
-          <aside className="flex min-h-0 flex-col gap-3">
-            <div className="sb-panel flex min-h-0 flex-1 flex-col rounded-[1.75rem] p-4 sm:p-5">
-              <p className="sb-label">Today&apos;s summary</p>
+              <div className="flex items-center gap-3 px-1 text-sm text-slate-200 sm:px-4">
+                <span className="flex -space-x-2">
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#07111f] bg-sky-500/20 text-xs text-sky-300">
+                    B
+                  </span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#07111f] bg-blue-500/20 text-xs text-blue-300">
+                    N
+                  </span>
+                  <span className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-[#07111f] bg-emerald-500/20 text-xs text-emerald-300">
+                    S
+                  </span>
+                </span>
 
-              <div className="mt-3 flex flex-1 flex-col gap-4">
-                <div className="flex justify-center">
-                  <ProgressCircle percent={isLoading ? 0 : completionPercent} />
-                </div>
-
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="sb-stat-card rounded-xl p-3">
-                    <p className="text-xs text-[var(--sb-text-muted)]">Active</p>
-                    <p className="mt-0.5 text-2xl font-bold text-[var(--sb-text)]">
-                      {isLoading ? "..." : activeTasks.length}
-                    </p>
-                    <p className="text-[10px] text-[var(--sb-text-muted)]">
-                      Still pending
-                    </p>
-                  </div>
-
-                  <div className="sb-stat-card rounded-xl p-3">
-                    <p className="text-xs text-[var(--sb-text-muted)]">Completed</p>
-                    <p className="mt-0.5 text-2xl font-bold text-[var(--sb-text)]">
-                      {isLoading ? "..." : completedTasks.length}
-                    </p>
-                    <p className="text-[10px] text-[var(--sb-text-muted)]">
-                      Finished tasks
-                    </p>
-                  </div>
-
-                  <div className="sb-stat-card rounded-xl p-3">
-                    <p className="text-xs text-[var(--sb-text-muted)]">Total</p>
-                    <p className="mt-0.5 text-2xl font-bold text-[var(--sb-text)]">
-                      {isLoading ? "..." : tasks.length}
-                    </p>
-                    <p className="text-[10px] text-[var(--sb-text-muted)]">
-                      All tasks
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-3 border-t border-[var(--sb-border)] pt-3">
-                <p className="sb-label">Reminder</p>
-
-                {dueTodayTasks.length > 0 ? (
-                  <div className="mt-2 rounded-xl border border-amber-400/30 bg-amber-500/10 p-3">
-                    <p className="text-sm font-bold text-amber-200">
-                      You have {dueTodayTasks.length} task
-                      {dueTodayTasks.length > 1 ? "s" : ""} due today.
-                    </p>
-
-                    <div className="mt-2 space-y-1">
-                      {dueTodayTasks.slice(0, 2).map((task) => (
-                        <p
-                          key={task.taskId}
-                          className="rounded-lg bg-black/20 px-2.5 py-1.5 text-xs text-[var(--sb-text)]"
-                        >
-                          {task.title}
-                        </p>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mt-2 text-xs text-[var(--sb-text-muted)] sm:text-sm">
-                    No high-priority tasks due today. Open the workspace to create tasks
-                    or ask the agent what is on your list.
-                  </p>
-                )}
+                <span>Powered by AWS AI services</span>
               </div>
             </div>
+
+            <div className="mt-14 grid gap-4 sm:grid-cols-3">
+              <div className="border-l border-white/[0.08] pl-4">
+                <p className="text-2xl font-bold text-white">
+                  24/7
+                </p>
+                <p className="mt-1 text-sm text-slate-200">
+                  Autonomous coaching
+                </p>
+              </div>
+
+              <div className="border-l border-white/[0.08] pl-4">
+                <p className="text-2xl font-bold text-white">
+                  Daily
+                </p>
+                <p className="mt-1 text-sm text-slate-200">
+                  Personalized task
+                </p>
+              </div>
+
+              <div className="border-l border-white/[0.08] pl-4">
+                <p className="text-2xl font-bold text-white">
+                  Email
+                </p>
+                <p className="mt-1 text-sm text-slate-200">
+                  Automatic delivery
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <aside className="rounded-[28px] border border-white/50 bg-[#0b1728] p-6 shadow-[0_30px_90px_rgba(0,0,0,0.3)] sm:p-7">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.16em] text-sky-400">
+                  Active goal
+                </p>
+
+                <h2 className="mt-3 text-2xl font-bold tracking-tight text-white">
+                  {isLoading
+                    ? "Loading your goal..."
+                    : activeGoal?.goal ??
+                      "No goal created yet"}
+                </h2>
+              </div>
+
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/50 bg-white/[0.04] text-xl">
+                🎯
+              </div>
+            </div>
+
+            <div className="mt-7 grid gap-3 sm:grid-cols-2 lg:grid-cols-1 xl:grid-cols-2">
+              <div className="rounded-2xl bg-white/[0.035] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                  Deadline
+                </p>
+
+                <p className="mt-2 font-semibold text-slate-200">
+                  {isLoading
+                    ? "Loading..."
+                    : activeGoal?.deadline ?? "Not set"}
+                </p>
+              </div>
+
+              <div className="rounded-2xl bg-white/[0.035] p-4">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-slate-200">
+                  Daily time
+                </p>
+
+                <p className="mt-2 font-semibold text-slate-200">
+                  {isLoading
+                    ? "Loading..."
+                    : activeGoal
+                      ? `${activeGoal.dailyMinutes} minutes`
+                      : "Not set"}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-2xl border border-sky-400/10 bg-sky-400/[0.05] p-4">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-sky-400">
+                    Coaching status
+                  </p>
+
+                  <p className="mt-2 font-semibold capitalize text-sky-100">
+                    {isLoading
+                      ? "Loading"
+                      : activeGoal?.status ?? "Inactive"}
+                  </p>
+                </div>
+
+                <span className="h-3 w-3 rounded-full bg-sky-400 shadow-[0_0_18px_rgba(56,189,248,0.7)]" />             
+                 </div>
+            </div>
+
+            <div className="mt-6 border-t border-white/[0.8] pt-6">
+              <div className="flex items-start gap-3">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-sky-400/[0.08] text-lg">
+                  ✉️
+                </div>
+
+                <div>
+                  <p className="font-semibold text-white">
+                    Morning coaching is enabled
+                  </p>
+
+                  <p className="mt-1 text-sm leading-6 text-slate-200">
+                    Amazon Nova generates a focused task and SNS
+                    sends it directly to your email.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Link
+              href="/workspace"
+              className="mt-6 flex items-center justify-between rounded-xl bg-blue-500/[0.08] px-4 py-3.5 text-sm font-semibold text-slate-200 transition hover:bg-blue-500/[0.15] hover:text-white"
+            >
+              Open goal workspace
+              <span className="text-sky-400">→</span>
+            </Link>
           </aside>
         </section>
 
-        <section className="mt-3 grid shrink-0 gap-2 md:grid-cols-3">
-          <div className="sb-panel rounded-2xl p-4">
-            <p className="sb-label">Step 1</p>
-            <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              Describe your project
-            </h2>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              Describe your engineering idea using natural language.
+        <section className="mt-14 grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="rounded-[26px] border border-white/50 bg-white/[0.025] p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-200">
+              Daily coaching
             </p>
+
+            <div className="mt-5 flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h2 className="text-2xl font-bold tracking-tight text-white">
+                  Your next task arrives automatically.
+                </h2>
+
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-200">
+                  EventBridge triggers the morning workflow,
+                  Lambda reads your latest active goal, Amazon
+                  Nova creates today's task, and SNS delivers it.
+                </p>
+              </div>
+
+              <div className="shrink-0 rounded-2xl border border-sky-400/10 bg-sky-400/[0.05] px-5 py-4">
+                <p className="text-xs uppercase tracking-wider text-sky-400">
+                  Delivery
+                </p>
+                <p className="mt-1 font-semibold text-white">
+                  Every morning
+                </p>
+              </div>
+            </div>
           </div>
 
-          <div className="sb-panel rounded-2xl p-4">
-            <p className="sb-label">Step 2</p>
-            <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              AI generates a plan
-            </h2>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              Amazon Bedrock analyzes your request and 
-              creates a prioritized implementation plan.
+          <div className="rounded-[26px] border border-white/50 bg-white/[0.025] p-6 sm:p-8">
+            <p className="text-xs font-bold uppercase tracking-[0.16em] text-slate-200">
+              Cloud architecture
             </p>
-          </div>
 
-          <div className="sb-panel rounded-2xl p-4">
-            <p className="sb-label">Step 3</p>
-            <h2 className="mt-1 text-base font-bold text-[var(--sb-text)]">
-              Track project progress
+            <h2 className="mt-5 text-2xl font-bold tracking-tight text-white">
+              Built with serverless AWS services.
             </h2>
-            <p className="mt-1 text-xs leading-relaxed text-[var(--sb-text-muted)]">
-              Manage completed and pending tasks while keeping project 
-              progress synchronized in DynamoDB.
-            </p>
+
+            <div className="mt-6 flex flex-wrap gap-2">
+              {[
+                "Bedrock",
+                "Lambda",
+                "API Gateway",
+                "DynamoDB",
+                "EventBridge",
+                "SNS",
+                "Nova",
+              ].map((service) => (
+                <span
+                  key={service}
+                  className="rounded-full border border-white/50 bg-blue-400/[0.06] px-3 py-2 text-xs font-medium border-blue-400/10 text-blue-100"
+                >
+                  {service}
+                </span>
+              ))}
+            </div>
           </div>
         </section>
       </main>
